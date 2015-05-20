@@ -45,7 +45,19 @@ bot = Cinch::Bot.new do
   end
   }
   on :message, "!add" do |m|
-    if (lineHash[m.user.nick] != nil && lineHash[m.user.nick] > 0)
+    tempQueue = Queue.new
+    is_in_queue = false;
+    if(!queue.empty?)
+        loop do
+          temp = queue.pop
+          tempQueue << temp
+          is_in_queue = true if (temp.eql?(m.user.nick))
+          m.twitch "Stop"
+          break if queue.empty?
+        end
+        queue = tempQueue
+    end
+    if (is_in_queue)
       m.twitch "You are already in line for a battle, #{m.user.nick}"
       return
     end
