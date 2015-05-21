@@ -10,9 +10,9 @@ class Cinch::Message
     end
 end
 
-def build_commands
+def build_commands(fileName)
   #Read the commands from the file
-  file = open("botCommands.txt", 'r')
+  file = open(fileName, 'r')
   hash = Hash.new
   file.each { |line| 
     line = line.strip
@@ -21,8 +21,14 @@ def build_commands
   }
   return hash
 end
+def write_file(hash, filepath)
+  logfile = File.new(filepath, "w")
+  hash.each { |k, v| logfile.write(k + ':---:' + v)  }
+end
 
-hash = build_commands
+
+
+hash = build_commands("botCommands.txt")
 queue = Queue.new
 #read from file queue and stored friendCodes
 
@@ -30,8 +36,8 @@ queue = Queue.new
 lineHash = Hash.new
 puts "Enter channel to join"
 channel = gets.chomp#"emre801"
-fc_hash = Hash.new
-ign_hash = Hash.new
+fc_hash = build_commands("fc.txt")
+ign_hash = build_commands("ign.txt")
 botname = cred.return_bot_name #this is where you'll enter your bot's name
 #write queue to file
   
@@ -70,15 +76,14 @@ bot = Cinch::Bot.new do
       lineHash[m.user.nick] = 0
       battle ="Next person for battle is #{battle}"
       if(fc_hash.has_key?(m.user.nick))
-        battle + ", fc: " + fc_hash[m.user.nick][0..3] << "-" << fc_hash[m.user.nick][4..7]<< "-" << fc_hash[m.user.nick][8..12]
+        battle << ", fc: " + fc_hash[m.user.nick][0..3] << "-" << fc_hash[m.user.nick][4..7]<< "-" << fc_hash[m.user.nick][8..12]
       else 
-        battle + ", please enter your friend code, inorder to save code use !fc command"
+        battle << ", please enter your friend code, inorder to save code use !fc command"
       end
-      m.twitch "bloop2"
       if(ign_hash.has_key?(m.user.nick))
-        battle + ", IGN: " + ign_hash[m.user.nick]
+        battle << ", IGN: " + ign_hash[m.user.nick]
       else
-        battle + ", please enter your IGN inorder for it to be saved"
+        battle << ", please enter your IGN inorder for it to be saved"
       end
       m.twitch battle
     end
@@ -86,6 +91,7 @@ bot = Cinch::Bot.new do
  on :message, /^!ign (.+)/ do |m, responce|
     ign_hash[m.user.nick] = responce
     m.twitch "your IGN has been saved, thank you"
+    write_file(fc_hash, "ign.txt")
   end
  on :message, /^!fc (.+)/ do |m, responce|
 	    responce = responce.delete('^0-9')
@@ -99,6 +105,7 @@ bot = Cinch::Bot.new do
       end
       m.twitch m.user.nick + ", Thank you. I have added your Friend Code to my Collection " + responce[0..3] + "-" + responce[4..7] + "-" + responce[8..12]
       fc_hash[m.user.nick] = responce
+      write_file(fc_hash, "fc.txt")
   end
   
    on :message, /^!fc_update (.+)/ do |m, responce|
@@ -112,6 +119,7 @@ bot = Cinch::Bot.new do
       end
       m.twitch m.user.nick + ", Thank you. I have added your Friend Code to my Collection " + responce[0..3] + "-" + responce[4..7] + "-" + responce[8..12]
       fc_hash[m.user.nick] = responce
+      write_file(fc_hash, "fc.txt")
   end
   
   on :message, "!line" do |m|
