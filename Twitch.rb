@@ -1,7 +1,9 @@
 require 'cinch'
 load 'Cred.rb'
+load 'pokegemTest.rb'
 
 cred = Cred.new()
+pokemonInfo = PokemonInfo.new
 
 class Cinch::Message
   def twitch(string)
@@ -176,6 +178,8 @@ bot = Cinch::Bot.new do
   end
   ##----------
   
+
+
   ## Raffle Code
   on :message, "!raffle" do |m|
     if !raffle_lock
@@ -205,7 +209,18 @@ bot = Cinch::Bot.new do
     end
   end
   ##----------
+  ## Make bot quit
+  on :message, "!quit" do |m|
+    if( m.user.name.eql?(channel) || m.user.name.eql?("emre801"))
+      bot.quit
+    end
+  end
 
+  ##Pokemon LookUp
+  on :message, /^!pk (.+)/ do |m, responce|
+    pokemonInfo.print_pokemon(responce, m)
+  end
+  ##---------
 end
 
 bot.start
