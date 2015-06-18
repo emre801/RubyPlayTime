@@ -1,19 +1,11 @@
 require 'cinch'
 load 'Cred.rb'
-load 'pokegemTest.rb'
+load 'pokegemTest.rb' ##Comment this out in Windows
 
-cred = Cred.new()
-pokemonInfo = PokemonInfo.new
-
-class Cinch::Message
-  def twitch(string)
-    string = string.to_s.gsub('<','&lt;').gsub('>','&gt;')
-    bot.irc.send ":#{bot.config.user}!#{bot.config.user}@#{bot.config.user}.tmi.twitch.tv PRIVMSG #{channel} :#{string}"
-  end
-end
+$gChanel = ""
 
 def build_commands(fileName)
-  #Read the commands from the file
+  #Read the commands from the files
   file = open(fileName, 'r')
   hash = Hash.new
   file.each { |line| 
@@ -23,6 +15,38 @@ def build_commands(fileName)
   }
   return hash
 end
+
+
+$timeCommands = build_commands("time.txt")
+
+
+class TimedPlugin
+  include Cinch::Plugin
+  $timeCommands.each { |command, seconds| 
+    timer seconds.to_i, method: command.to_sym
+    define_method(command) do 
+      string = command
+      string = string.to_s.gsub('<','&lt;').gsub('>','&gt;')
+      channel = $gChanel
+      bot.irc.send ":#{bot.config.user}!#{bot.config.user}@#{bot.config.user}.tmi.twitch.tv PRIVMSG #{channel} :#{string}"
+    end
+  }
+
+
+end
+
+cred = Cred.new()
+pokemonInfo = PokemonInfo.new
+
+
+
+class Cinch::Message
+  def twitch(string)
+    string = string.to_s.gsub('<','&lt;').gsub('>','&gt;')
+    bot.irc.send ":#{bot.config.user}!#{bot.config.user}@#{bot.config.user}.tmi.twitch.tv PRIVMSG #{channel} :#{string}"
+  end
+end
+
 def build_commands_array(fileName)
   #Read the commands from the file
   file = open(fileName, 'r')
@@ -48,11 +72,13 @@ end
 
 
 hash = build_commands("botCommands.txt")
+$tCommands = build_commands("time.txt")
 queue = Array.new
 #read from file queue and stored friendCodes
 
 puts "Enter channel to join"
 channel = gets.chomp#"emre801"
+$gChanel = channel
 fc_hash = build_commands("fc.txt")
 ign_hash = build_commands("ign.txt")
 puns = build_commands_array("pun.txt")
@@ -70,6 +96,7 @@ bot = Cinch::Bot.new do
     c.password = cred.return_twitch_password
     c.channels = ["#"+channel]
     c.user     = botname #change user to your bot's name
+    c.plugins.plugins = [TimedPlugin]
   end
   ## Commands that can be executed
   hash.each { |command, response|  
@@ -216,7 +243,27 @@ bot = Cinch::Bot.new do
     end
   end
 
-  ##Pokemon LookUp
+  on :message, "!wt" do |m|
+    if( m.user.name.eql?(channel))
+      m.twitch "Wonder trade time"
+      (1..5).to_a.each do |time|
+        sleep(1)
+        m.twitch (6 - time).to_s
+      end
+      sleep(1)
+      m.twitch "GO!"
+    end
+  end
+
+  on :message, "!userList" do |m|
+    if( m.user.name.eql?(channel))
+      Channel("#"+channel).users.each do |user, modes|
+        m.twitch modes
+      end
+    end
+  end
+
+  ##Pokemon LookUp, you have to comment this out in windows
   on :message, /^!pk (.+)/ do |m, responce|
     pokemonInfo.print_pokemon(responce, m)
   end
