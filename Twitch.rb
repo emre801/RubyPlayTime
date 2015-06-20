@@ -1,10 +1,60 @@
 require 'cinch'
+require 'mysql'
 load 'Cred.rb'
 load 'pokegemTest.rb' ##Comment this out in Windows
 
 $gChanel = ""
+$loadMySQL = true
+$writeMySQL = true
 
-def build_commands(fileName)
+def retrieve_mysql_info(tableName, user = false)
+  tableName.slice! ".txt"
+  begin
+      con = Mysql.new 'localhost', 'user12', '34klq*', 'darcelbot'
+      sql = "SELECT * FROM " + tableName
+      channel = $gChanel
+      sql << " where user = '#{channel}'" if user
+      rs = con.query sql
+      puts "We have #{rs.num_rows} row(s)"
+      hash = Hash.new
+      rs.each_hash do |row|
+         puts  row['col1'] + " " + row['col2']
+         hash[row['col1']] = row['col2']
+      end  
+      return hash
+      
+  rescue Mysql::Error => e
+      puts e.errno
+      puts e.error
+      
+  ensure
+      con.close if con
+  end
+end
+
+
+
+def insert_new_value_into_table(tableName, col1, col2)
+  tableName.slice! ".txt"
+  begin
+      con = Mysql.new 'localhost', 'user12', '34klq*', 'darcelbot'
+      con.query("INSERT INTO #{tableName}(col1,col2) VALUES('#{col1}','#{col2}')")
+      
+  rescue Mysql::Error => e
+      puts e.errno
+      puts e.error
+      
+  ensure
+      con.close if con
+  end
+
+
+end
+
+
+
+def build_commands(fileName, user = false)
+  return retrieve_mysql_info(fileName, user) if $loadMySQL
   #Read the commands from the files
   file = open(fileName, 'r')
   hash = Hash.new
@@ -33,7 +83,9 @@ class TimedPlugin
   }
 
 
+
 end
+
 
 cred = Cred.new()
 pokemonInfo = PokemonInfo.new
@@ -71,14 +123,15 @@ end
 
 
 
-hash = build_commands("botCommands.txt")
-$tCommands = build_commands("time.txt")
+
 queue = Array.new
 #read from file queue and stored friendCodes
 
 puts "Enter channel to join"
 channel = gets.chomp#"emre801"
 $gChanel = channel
+hash = build_commands("botCommands.txt",true)
+$tCommands = build_commands("time.txt")
 fc_hash = build_commands("fc.txt")
 ign_hash = build_commands("ign.txt")
 puns = build_commands_array("pun.txt")
@@ -152,21 +205,31 @@ bot = Cinch::Bot.new do
   on :message, /^!ign (.+)/ do |m, responce|
     ign_hash[m.user.nick] = responce
     m.twitch "your IGN has been saved, thank you"
-    write_file(ign_hash, "ign.txt")
+    write_file(ign_hash, "ign.txt") if !$writeMySQL
+    insert_new_value_into_table("ign", m.user.nick, responce) if $writeMySQL
+
   end
   on :message, /^!fc (.+)/ do |m, responce|
+    responce.strip!
+    originalMessage = responce
     responce = responce.delete('^0-9')
-    if(fc_hash.has_key?(m.user.nick))
-      m.twitch m.user.nick + ", have already added your friend code, if you want to update it please enter !fc_update"
-      return
-    end
     if responce.length != 12
-      m.twitch m.user.nick + ", You have entered an incorrect friend Code"
+      originalMessage.downcase! 
+      originalMessage.gsub!(/[^0-9A-Za-z]/, '') 
+      m.twitch "--" + originalMessage + "--"
+      if(fc_hash.has_key?(originalMessage))
+          originalMessageR = fc_hash[originalMessage]
+          m.twitch originalMessageR
+          m.twitch originalMessage + " : " + originalMessageR[0..3] + "-" + originalMessageR[4..7] + "-" + originalMessageR[8..12]
+      else
+        m.twitch m.user.nick + ", You have entered an incorrect friend Code"
+      end
       return;
     end
     m.twitch m.user.nick + ", Thank you. I have added your Friend Code to my Collection " + responce[0..3] + "-" + responce[4..7] + "-" + responce[8..12]
     fc_hash[m.user.nick] = responce
-    write_file(fc_hash, "fc.txt")
+    write_file(fc_hash, "fc.txt") if !$writeMySQL
+    insert_new_value_into_table("fc", m.user.nick, responce) if $writeMySQL
   end
   
   on :message, "!remove" do |m|
@@ -176,6 +239,15 @@ bot = Cinch::Bot.new do
       write_file_array(queue, "queue.txt")
     else
       m.twitch m.user.nick + ", you are not in line"
+    end
+  end
+
+  on :message, "!fc" do |m, responce|
+    if(fc_hash.has_key?(m.user.nick))
+      responce = fc_hash[m.user.nick]
+      m.twitch m.user.nick + " : " + responce[0..3] + "-" + responce[4..7] + "-" + responce[8..12]
+    else 
+      m.twitch m.user.nick + " , please enter you friend code using \"!fc 1234-1234-1234\""
     end
   end
   
@@ -191,7 +263,8 @@ bot = Cinch::Bot.new do
     end
     m.twitch m.user.nick + ", Thank you. I have added your Friend Code to my Collection " + responce[0..3] + "-" + responce[4..7] + "-" + responce[8..12]
     fc_hash[m.user.nick] = responce
-    write_file(fc_hash, "fc.txt")
+    write_file(fc_hash, "fc.txt") if !$writeMySQL
+    insert_new_value_into_table("fc", m.user.nick, responce) if $writeMySQL
   end
   
   on :message, "!line" do |m|
@@ -262,6 +335,15 @@ bot = Cinch::Bot.new do
       end
     end
   end
+  on :message, "!bwaha" do |m|
+    return if( !m.user.name.eql?(channel))
+    #fc_hash.each{|k,v| insert_new_value_into_table("fc", k, v)}
+    #ign_hash.each{|k,v| insert_new_value_into_table("ign", k, v)}
+    hash.each{|k,v| insert_new_value_into_table("botcommands", k, v)}
+  end
+
+
+
 
   ##Pokemon LookUp, you have to comment this out in windows
   on :message, /^!pk (.+)/ do |m, responce|
