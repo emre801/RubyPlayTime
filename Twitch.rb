@@ -15,7 +15,7 @@ def retrieve_mysql_info(tableName, user = false)
       channel = $gChanel
       sql << " where user = '#{channel}'" if user
       rs = con.query sql
-      puts "We have #{rs.num_rows} row(s)"
+      #puts "We have #{rs.num_rows} row(s)"
       hash = Hash.new
       rs.each_hash do |row|
          puts  row['col1'] + " " + row['col2']
